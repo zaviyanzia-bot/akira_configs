@@ -1,5 +1,5 @@
 {
-  "latest_version": "1.0.2",
+  "latest_version": "1.0.3",
   "download_url": "https://github.com/zaviyanzia-bot/akira_configs/releases/download/v1.0.2/Akira_Setup.exe",
-  "changelog": "- Removed restart button from header.\n- Headless chrome will work now.\n- Cleaned logs area for easy details."
+  "changelog": "- Added Timeout (min) in Generation Setting.\n- Added instructions pop for confusing button features.\n- Run Headless / Hidden Browser Checkbox.\n- Easy Live Console Log.\n- Minor bug fix/improvements."
 }
