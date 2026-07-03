@@ -1,5 +1,5 @@
 {
   "latest_version": "1.0.1",
   "download_url": "https://github.com/zaviyanzia-bot/akira_configs/releases/download/v1.0.1/Akira_Setup.exe",
-  "changelog": "- Complete split layout & horizontal top navigation design.\n- Integrated Session History directly inside the Session Vault.\n- Gold & Black Charcoal premium styling theme."
+  "changelog": "- Removed restart button from header.\n- Headless chrome will work now.\n- Cleaned logs area for easy details."
 }
