@@ -1704,6 +1704,10 @@ class DolaAutomationBot:
                             except Exception as cookie_err:
                                 self.log("WARNING", f"Row {row_id}: Failed to inject saved cookies/localStorage: {str(cookie_err)}")
                         
+                        if not setup_mode and not cookies_injected:
+                            self.log("ERROR", f"Row {row_id}: Cookies failed to load/inject for {selected_account}! Aborting browser launch to prevent logged-out state.")
+                            raise Exception("COOKIE_INJECTION_FAILED")
+
                         # Reuse the default page opened by persistent context to prevent about:blank tab leaks
                         page = context.pages[0] if context.pages else context.new_page()
                         page.set_default_timeout(60000)
@@ -2607,6 +2611,26 @@ class DolaAutomationBot:
                         page.wait_for_timeout(1000)
                     else:
                         self._ensure_clean_new_chat(row_id, page)
+
+                # 2. Check if cookies expired / logged out
+                if not setup_mode:
+                    is_logged_out = page.evaluate("""() => {
+                        const loginBtn = Array.from(document.querySelectorAll('button, a')).find(el => {
+                            const txt = el.innerText ? el.innerText.trim() : '';
+                            return txt === 'Log In' || txt === 'Login';
+                        });
+                        const hasModal = Array.from(document.querySelectorAll('*')).some(el => {
+                            const txt = el.innerText ? el.innerText.trim() : '';
+                            return txt.includes('Log In to Unlock More Features') || txt.includes('Log in to unlock');
+                        });
+                        return !!loginBtn || hasModal;
+                    }""")
+                    if is_logged_out:
+                        self.log("ERROR", f"Row {row_id}: Account {selected_account} is logged out / session expired! Marking as EXPIRED.")
+                        self._release_account_lock(selected_account, success=False, mark_expired=True)
+                        selected_account = None
+                        self.last_error_reason = "EXPIRED"
+                        raise Exception("SESSION_EXPIRED")
 
                 self.update_status(row_id, "GENERATING", "[3/5] Submitting prompt request...")
                 # ----------------------------------------------------------------
