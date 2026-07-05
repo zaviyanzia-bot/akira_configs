@@ -1381,7 +1381,7 @@ class NexusAutomatorWindow(QMainWindow):
 
         # Automatic refresh for Session Vault countdown timers
         self.vault_refresh_timer = QTimer(self)
-        self.vault_refresh_timer.setInterval(30000) # every 30 seconds
+        self.vault_refresh_timer.setInterval(1000) # every 1 second (allows live updates and blinking active status)
         self.vault_refresh_timer.timeout.connect(self.vault_reload_accounts)
         self.vault_refresh_timer.start()
 
@@ -3513,6 +3513,7 @@ class NexusAutomatorWindow(QMainWindow):
         )
 
     def vault_reload_accounts(self):
+        self.blinker_active = not getattr(self, "blinker_active", False)
         import json
         from datetime import date
         import time
@@ -3586,7 +3587,14 @@ class NexusAutomatorWindow(QMainWindow):
                     minutes, seconds = divmod(remainder, 60)
                     limit_timer_str = f" ({hours:02d}h {minutes:02d}m)"
 
-            if status_val == "EXPIRED" or cookies_expired:
+            is_locked = (u.get("locked_by") is not None)
+
+            if is_locked:
+                active_count += 1
+                blinker_state = getattr(self, "blinker_active", True)
+                status_text = "🟢 WORKING" if blinker_state else "⚪ WORKING"
+                status_color = "#10B981" if blinker_state else "#6B7280"
+            elif status_val == "EXPIRED" or cookies_expired:
                 expired_count += 1
                 status_text = "EXPIRED"
                 status_color = "#EF4444"
