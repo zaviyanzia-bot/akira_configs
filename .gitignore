@@ -1,0 +1,40 @@
+# Python cache and compiler artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+ENV/
+build/
+dist/
+*.spec
+nuitka-crash-report.xml
+
+# Project build output and binaries
+build_output/
+chromium/
+
+# Personal and temporary profiles
+chrome_profile_*/
+dola_profile_master/
+
+# Video outputs and local media
+*.mp4
+*.cleanTEMP_MPY_wvf_snd.mp4
+my_new_logo.png
+crash_log.txt
+crash_output.txt
+log.log
+raw_app.log
+test_out.txt
+test_launch_out.txt
+
+# Local configuration and credentials
+activation_state.json
+admin_config.json
+license_config.json
+cookies/
+vault_settings.json
+proxies.txt

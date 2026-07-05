@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nexus Automator v1.0.0 - Seedance Vid Gen</title>
+  <!-- Google Fonts: Inter for UI, JetBrains Mono for Console logs -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    
+    <!-- ================= SIDEBAR ================= -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-logo-container">
+          <svg class="brand-logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+        <div class="brand-info">
+          <span class="brand-name">Nexus</span>
+          <span class="brand-version">AUTOMATOR V1.0.0</span>
+        </div>
+      </div>
+
+      <div class="menu-section">
+        <span class="menu-label">MAIN MENU</span>
+        <ul class="menu-list">
+          
+          <li class="menu-item" data-tab="dashboard">
+            <div class="menu-item-left">
+              <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
+              <div class="menu-item-text">
+                <span class="menu-title">Dashboard</span>
+              </div>
+            </div>
+          </li>
+          
+          <li class="menu-item active" data-tab="seedance">
+            <div class="menu-item-left">
+              <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7l-7 5 7 5V7z"></path><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
+              <div class="menu-item-text">
+                <span class="menu-title">Seedance Vid Gen</span>
+                <span class="menu-subtitle">AI VIDEO ENGINE</span>
+              </div>
+            </div>
+            <svg class="menu-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+          </li>
+          
+          <li class="menu-item" data-tab="bulk-image">
+            <div class="menu-item-left">
+              <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+              <div class="menu-item-text">
+                <span class="menu-title">Bulk Image Generator</span>
+                <span class="menu-subtitle">HIGH QUALITY IMAGE</span>
+              </div>
+            </div>
+          </li>
+          
+          <li class="menu-item" data-tab="tts">
+            <div class="menu-item-left">
+              <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+              <div class="menu-item-text">
+                <span class="menu-title">Text to Speech</span>
+                <span class="menu-subtitle">NEURAL VOICE STUDIO</span>
+              </div>
+            </div>
+          </li>
+          
+        </ul>
+      </div>
+
+      <div class="sidebar-footer">
+        <ul class="menu-list secondary">
+          <li class="menu-item" data-action="about">
+            <span>About</span>
+          </li>
+          <li class="menu-item" data-action="billing">
+            <span>Billing & Plans</span>
+          </li>
+          <li class="menu-item" data-action="contact">
+            <span>Contact Us</span>
+          </li>
+        </ul>
+        <div class="profile-box">
+          <div class="profile-avatar">MZ</div>
+          <div class="profile-details">
+            <span class="profile-name">Malik Zia</span>
+            <span class="profile-plan">Trial (2 Hours) Plan</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ================= MAIN WORKSPACE ================= -->
+    <main class="main-content">
+      
+      <!-- Top Header Navbar -->
+      <header class="top-nav">
+        <div class="title-section">
+          <h1>Seedance Vid Gen</h1>
+          <p>Bulk generate high quality Seedance AI videos via API integration.</p>
+        </div>
+        <div class="header-actions">
+          <button class="nav-btn" id="btn-refresh" title="Refresh GUI/Stats">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+          </button>
+          <button class="nav-btn whatsapp" id="btn-support" title="WhatsApp Support">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.717-1.455L0 24zm6.59-4.846c1.6.95 2.698 1.489 4.625 1.577l.275.006c5.443 0 9.874-4.385 9.877-9.761.002-2.585-1.003-5.015-2.831-6.845C16.69 2.298 14.268 1.29 11.69 1.29c-5.452 0-9.887 4.387-9.89 9.764-.001 2.078.536 3.79 1.558 5.4l-.45 1.64 1.748-.448zm11.387-4.974c-.26-.13-1.532-.756-1.77-.84-.237-.087-.41-.13-.58.13-.172.26-.667.84-.817 1.01-.15.17-.3.19-.56.06-1.223-.61-2.148-1.077-2.996-2.535-.224-.388.224-.36.64-1.192.07-.14.03-.26-.01-.33-.04-.07-.41-1-.563-1.372-.15-.36-.3-.31-.41-.315-.1-.005-.23-.005-.36-.005-.13 0-.34.05-.52.25-.18.2-1.63 1.59-1.63 3.88 0 2.29 1.67 4.5 1.9 4.81.23.31 3.25 4.96 7.89 6.96 1.1.48 1.97.76 2.64.97 1.11.35 2.12.3 2.92.18.89-.13 2.73-1.12 3.12-2.15.39-1.03.39-1.91.27-2.1-.12-.19-.34-.3-.6-.43z"/></svg>
+          </button>
+          <button class="nav-btn" id="btn-theme" title="Toggle Theme">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+          </button>
+          <button class="nav-btn" id="btn-notification" title="Notifications">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+            <span class="notification-badge"></span>
+          </button>
+        </div>
+      </header>
+
+      <!-- ================= STATS CONTAINER ================= -->
+      <section class="stats-ribbon">
+        <div class="stats-grid">
+          <div class="stat-card" data-stat="total">
+            <span class="stat-lbl">TOTAL</span>
+            <span class="stat-val" id="stat-total-val">11</span>
+          </div>
+          <div class="stat-card" data-stat="queued">
+            <span class="stat-lbl">QUEUED</span>
+            <span class="stat-val" id="stat-queued-val">4</span>
+          </div>
+          <div class="stat-card" data-stat="generating">
+            <span class="stat-lbl">GENERATING</span>
+            <span class="stat-val text-purple" id="stat-generating-val">6</span>
+          </div>
+          <div class="stat-card" data-stat="done">
+            <span class="stat-lbl">DONE</span>
+            <span class="stat-val text-green" id="stat-done-val">1</span>
+          </div>
+          <div class="stat-card" data-stat="failed">
+            <span class="stat-lbl">FAILED</span>
+            <span class="stat-val text-red" id="stat-failed-val">0</span>
+          </div>
+          <div class="stat-card" data-stat="skipped">
+            <span class="stat-lbl">SKIPPED</span>
+            <span class="stat-val text-dim" id="stat-skipped-val">0</span>
+          </div>
+        </div>
+        
+        <div class="progress-bar-container">
+          <div class="progress-info">
+            <span class="lbl">PROGRESS</span>
+            <span class="progress-pct" id="progress-text">1/11 done (9%)</span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" id="progress-bar-fill" style="width: 9.09%;"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 2-COLUMN WORKSPACE GRID ================= -->
+      <div class="workspace-grid">
+        
+        <!-- Left Column: Settings and Queue -->
+        <div class="workspace-col col-left">
+          
+          <!-- Generation Settings Card -->
+          <div class="panel-card settings-card">
+            <div class="panel-header">
+              <svg class="panel-header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+              <h2>GENERATION SETTINGS</h2>
+            </div>
+            
+            <div class="settings-form">
+              <div class="form-row">
+                <div class="form-group flex-2">
+                  <label class="input-lbl">MODEL</label>
+                  <div class="custom-select-wrapper">
+                    <select class="form-select" id="setting-model" disabled>
+                      <option value="seedance-2.0">Seedance 2.0</option>
+                      <option value="seedance-1.5">Seedance 1.5 Pro</option>
+                      <option value="seedance-1.0">Seedance 1.0 Lite</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-group flex-1">
+                  <label class="input-lbl">DURATION</label>
+                  <div class="custom-select-wrapper">
+                    <select class="form-select" id="setting-duration" disabled>
+                      <option value="10">10</option>
+                      <option value="15">15</option>
+                      <option value="30">30</option>
+                      <option value="60">60</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group flex-2">
+                  <label class="input-lbl">ASPECT RATIO</label>
+                  <div class="custom-select-wrapper">
+                    <select class="form-select" id="setting-ratio" disabled>
+                      <option value="9:16">9:16</option>
+                      <option value="16:9">16:9</option>
+                      <option value="1:1">1:1</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-group flex-1">
+                  <label class="input-lbl">BATCH SIZE</label>
+                  <input type="number" class="form-input" id="setting-batch" value="30" disabled>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="input-lbl">SUBMIT SPEED (CONCURRENT CONNECTIONS)</label>
+                <input type="text" class="form-input" id="setting-concurrent" value="Default: 1" disabled>
+              </div>
+
+              <button class="btn-action stop-btn" id="btn-start-stop">
+                <span class="btn-indicator"></span>
+                <span class="btn-text">STOP GENERATION</span>
+              </button>
+            </div>
+          </div>
+          
+          <!-- Generation Queue Card -->
+          <div class="panel-card queue-card grow">
+            <div class="panel-header">
+              <svg class="panel-header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              <h2>GENERATION QUEUE</h2>
+            </div>
+            <div class="table-container">
+              <table class="queue-table" id="queue-table">
+                <thead>
+                  <tr>
+                    <th class="col-num">#</th>
+                    <th class="col-prompt">PROMPT</th>
+                    <th class="col-status">STATUS</th>
+                    <th class="col-action">ACTION</th>
+                  </tr>
+                </thead>
+                <tbody id="queue-table-body">
+                  <!-- Initializing with exact rows from screenshot -->
+                  <tr id="queue-row-1">
+                    <td class="col-num">1</td>
+                    <td class="col-prompt" title="Rusty Omega-Style Seamaster Watch Full Restoration | Object Type: Stainless steel dive watch | Before Condition: Thick orange rust on bezel, cracked crystal, frozen crown, green corrosion on bracelet, dead movement">Rusty Omega-Style Seamaster Watch Full...</td>
+                    <td class="col-status"><span class="q-status-badge status-generating">GENERATING</span></td>
+                    <td class="col-action">Processing...</td>
+                  </tr>
+                  <tr id="queue-row-2">
+                    <td class="col-num">2</td>
+                    <td class="col-prompt" title="Parent POV, raw iPhone 17 Pro Max back camera, vertical 9:16, pediatric eye clinic in Dallas, Texas, daytime festive lighting. 0-2s: 6-month-old baby in mother's arms on crinkling exam paper, squinting confused at blurred shapes, mom whispering 'hi baby, mommy's here' nervously. Handheld shake, exposure flicker. 2-5s: Blurred pediatric nurse hands gently slide tiny prescription glasses onto baby's face, soft click, baby freezes, breath catches. 5-8s:">Parent POV, raw iPhone 17 Pro Max back...</td>
+                    <td class="col-status"><span class="q-status-badge status-downloading">DOWNLOADING</span></td>
+                    <td class="col-action">Cleaning watermark...</td>
+                  </tr>
+                  <tr id="queue-row-3">
+                    <td class="col-num">3</td>
+                    <td class="col-prompt" title="Father POV, raw iPhone 17 Pro Max back camera, vertical 9:16, playground setup, kids playing slide, cinematic warm colors, bokeh lens flare.">Father POV, raw iPhone 17 Pro Max back...</td>
+                    <td class="col-status"><span class="q-status-badge status-generating">GENERATING</span></td>
+                    <td class="col-action">Processing...</td>
+                  </tr>
+                  <tr id="queue-row-4">
+                    <td class="col-num">4</td>
+                    <td class="col-prompt" title="Mother POV, raw iPhone 17 Pro Max back camera, vertical 9:16, baking class with kids, flour dust in air, slow motion hand whisking cake batter.">Mother POV, raw iPhone 17 Pro Max back...</td>
+                    <td class="col-status"><span class="q-status-badge status-generating">GENERATING</span></td>
+                    <td class="col-action">Processing...</td>
+                  </tr>
+                  <tr id="queue-row-5">
+                    <td class="col-num">5</td>
+                    <td class="col-prompt" title="Parent POV, raw iPhone 17 Pro Max back camera, vertical 9:16, living room, toddlers stacking wooden blocks, building collapse, laughing out loud.">Parent POV, raw iPhone 17 Pro Max back...</td>
+                    <td class="col-status"><span class="q-status-badge status-generating">GENERATING</span></td>
+                    <td class="col-action">Processing...</td>
+                  </tr>
+                  <tr id="queue-row-6">
+                    <td class="col-num">6</td>
+                    <td class="col-prompt" title="Father POV, raw iPhone 17 Pro Max back camera, vertical 9:16, backyard lawn, teaching boy to cycle without training wheels, dynamic camera pan.">Father POV, raw iPhone 17 Pro Max back...</td>
+                    <td class="col-status"><span class="q-status-badge status-generating">GENERATING</span></td>
+                    <td class="col-action">Processing...</td>
+                  </tr>
+                  <tr id="queue-row-7">
+                    <td class="col-num">7</td>
+                    <td class="col-prompt" title="Mother POV, raw iPhone 17 Pro Max back camera, vertical 9:16, kitchen, toddler tasting lemon for the first time, funny facial expression.">Mother POV, raw iPhone 17 Pro Max back...</td>
+                    <td class="col-status"><span class="q-status-badge status-generating">GENERATING</span></td>
+                    <td class="col-action">Processing...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Right Column: Prompts and Live Logs -->
+        <div class="workspace-col col-right">
+          
+          <!-- Prompts Input Card -->
+          <div class="panel-card prompts-card">
+            <div class="panel-header-row">
+              <div class="panel-header">
+                <svg class="panel-header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                <h2>PROMPTS</h2>
+                <span class="badge" id="prompts-count-badge">11 PROMPTS</span>
+              </div>
+              <div class="prompt-actions">
+                <button class="prompt-btn" id="btn-import-txt" disabled>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg>
+                  TXT
+                </button>
+                <button class="prompt-btn" id="btn-import-csv" disabled>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg>
+                  CSV
+                </button>
+                <button class="prompt-btn" id="btn-add-queue" style="background: var(--gradient-btn); color: white; border: none; box-shadow: 0 0 8px rgba(99, 102, 241, 0.2);" disabled>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                  ADD TO QUEUE
+                </button>
+                <button class="prompt-btn danger" id="btn-clear-prompts" disabled>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                  CLEAR
+                </button>
+              </div>
+            </div>
+            <textarea class="prompts-textarea" id="prompts-input" placeholder="One prompt per line - one video. Import from .txt or .csv files using the buttons above." disabled></textarea>
+            <span class="textarea-note">One prompt per line = one video. Import from .txt or .csv files using the buttons above.</span>
+          </div>
+
+          <!-- Live Log Console Card -->
+          <div class="panel-card log-card grow">
+            <div class="panel-header-row">
+              <div class="panel-header">
+                <svg class="panel-header-icon terminal-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+                <div class="console-title-group">
+                  <div class="console-main-title">
+                    <h2>LIVE LOG CONSOLE</h2>
+                    <span class="blink-dot"></span>
+                  </div>
+                  <span class="console-sub-title">STREAMING LIVE TELEMETRY</span>
+                </div>
+              </div>
+              
+              <div class="console-controls">
+                <div class="search-box-wrapper">
+                  <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                  <input type="text" class="console-search" id="console-search" placeholder="Search logs...">
+                </div>
+                <button class="console-btn" id="btn-copy-logs" title="Copy Logs">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                </button>
+                <button class="console-btn" id="btn-clear-logs" title="Clear Console">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                </button>
+                <button class="console-btn" id="btn-download-logs" title="Download Logs">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Terminal output body -->
+            <div class="console-terminal" id="console-terminal">
+              <!-- Preset exact logs from screenshot to look identical on first load -->
+              <div class="log-line success-line">070 [16:55:37] SUCCESS Row 2: Video is ready for download.</div>
+              <div class="log-line info-line">071 [16:55:38] INFO Row 3: Processing video request (attempt 13/250)...</div>
+              <div class="log-line info-line">072 [16:55:38] INFO Row 1: Processing video request (attempt 28/250)...</div>
+              <div class="log-line info-line">073 [16:55:38] INFO Row 6: Processing video request (attempt 10/250)...</div>
+              <div class="log-line info-line">074 [16:55:42] INFO Row 7: Processing video request (attempt 7/250)...</div>
+              <div class="log-line info-line">075 [16:55:45] INFO Row 2: [+] Removing watermark...</div>
+              <div class="log-line info-line">076 [16:55:45] INFO Row 2: [+] Watermark detected at: x=586, y=1231, w=128, h=48</div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Custom alert / toast notifications -->
+  <div id="toast-container"></div>
+
+  <!-- Simulated File Dialog Inputs (hidden) -->
+  <input type="file" id="file-input-txt" accept=".txt" style="display: none;">
+  <input type="file" id="file-input-csv" accept=".csv" style="display: none;">
+
+  <script src="app.js"></script>
+</body>
+</html>
