@@ -3543,21 +3543,17 @@ class NexusAutomatorWindow(QMainWindow):
 
             u = usage.get(fname, {})
             status_val = u.get("status")
-            # Use remaining points instead of uses today. Fresh/reset accounts start at full limit.
-            if u.get("date") == today:
-                # If points_left is not set but uses_today is, calculate fallback
-                points_left = u.get("points_left")
-                if points_left is None:
-                    uses_today = u.get("uses_today", 0)
-                    points_left = max(0, limit - uses_today)
-            else:
+            # Strictly use points_left from the usage database (set by Dola scraper)
+            points_left = u.get("points_left")
+            if points_left is None:
+                # If not parsed from Dola yet, default to limit
                 points_left = limit
                 
             is_full = (points_left == 0)
 
             # Calculate remaining time for DAILY_LIMIT / LIMIT HIT
             limit_timer_str = ""
-            if is_full or (status_val == "DAILY_LIMIT" and u.get("date") == today):
+            if is_full:
                 limit_time = u.get("limit_timestamp")
                 if limit_time:
                     elapsed = current_time - limit_time
@@ -3590,14 +3586,14 @@ class NexusAutomatorWindow(QMainWindow):
                 expired_count += 1
                 status_text = "FAILED"
                 status_color = "#EF4444"
-            elif is_full:
+            elif is_full or (status_val == "DAILY_LIMIT" and points_left == 0):
                 expired_count += 1
                 status_text = f"LIMIT HIT{limit_timer_str}"
                 status_color = "#EF4444"
-            elif status_val == "DAILY_LIMIT" and u.get("date") == today:
-                expired_count += 1
-                status_text = f"DAILY LIMIT HIT{limit_timer_str}"
-                status_color = "#EF4444"
+            elif points_left in (1, 2):
+                active_count += 1
+                status_text = "LOW"
+                status_color = "#F59E0B"  # Golden/Orange color
             else:
                 active_count += 1
                 status_text = "✓ READY"

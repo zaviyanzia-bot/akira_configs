@@ -3760,6 +3760,9 @@ class DolaAutomationBot:
                 u["status"] = "DAILY_LIMIT"
                 if not u.get("limit_timestamp"):
                     u["limit_timestamp"] = time.time()
+            else:
+                u["status"] = "READY"
+                u["limit_timestamp"] = None
                 
             usage[fname] = u
             
