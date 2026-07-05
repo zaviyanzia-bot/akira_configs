@@ -3131,6 +3131,15 @@ class NexusAutomatorWindow(QMainWindow):
         acc_hdr.addWidget(self.vault_acc_count_badge)
         acc_layout.addLayout(acc_hdr)
 
+        # Points Instruction label
+        points_info_lbl = QLabel(
+            "💡 Points Info: Remaining points strictly Dola website se pick hotay hain (not guessed). "
+            "1-2 points bache hon to status 'LOW' (Golden) show hoga, aur 'LIMIT HIT' sirf tabhi hoga jab points verified 0 hon."
+        )
+        points_info_lbl.setStyleSheet("font-size: 8.5pt; color: #9CA3AF; padding: 2px 4px; background: transparent; border: none;")
+        points_info_lbl.setWordWrap(True)
+        acc_layout.addWidget(points_info_lbl)
+
         # Account Table
         self.vault_acc_table = QTableWidget()
         self.vault_acc_table.setColumnCount(6)

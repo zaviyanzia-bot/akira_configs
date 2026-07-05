@@ -3053,7 +3053,12 @@ class DolaAutomationBot:
                                 except Exception as pe:
                                     self.log("WARNING", f"Failed to save parsed points limit: {str(pe)}")
                         
-                            if has_limit_keyword or (points_left is not None and points_left == 0):
+                            if points_left is not None:
+                                if points_left == 0:
+                                    daily_limit_hit = True
+                                else:
+                                    daily_limit_hit = False
+                            elif has_limit_keyword:
                                 daily_limit_hit = True
                         
                             if daily_limit_hit:
