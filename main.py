@@ -993,7 +993,7 @@ class NexusAutomatorWindow(QMainWindow):
         self.inp_timeout.setEnabled(True)
 
         self.cb_headless = QCheckBox("Run Headless / Hidden Browser")
-        self.cb_headless.setChecked(True)
+        self.cb_headless.setChecked(False)
 
         self.cb_use_vpn_mode = QCheckBox("Use Desktop VPN Mode (Bypass Proxies)")
         self.cb_use_vpn_mode.setChecked(False)
