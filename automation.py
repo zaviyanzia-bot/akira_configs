@@ -720,14 +720,30 @@ class DolaAutomationBot:
             last_part = url.split("/")[-1]
             # Check if URL ends with a numeric chat ID
             if any(char.isdigit() for char in last_part) and len(last_part) > 10:
-                self.log("WARNING", f"Row {row_id}: Redirected to old chat {last_part}. Retrying clean chat initialization...")
-                # Press shortcut to escape
-                page.keyboard.down("Control")
-                page.keyboard.down("Shift")
-                page.keyboard.press("k")
-                page.keyboard.up("Shift")
-                page.keyboard.up("Control")
-                page.wait_for_timeout(1500)
+                self.log("WARNING", f"Row {row_id}: Redirected to old chat {last_part}. Attempting to click sidebar New Chat...")
+                clicked_sidebar = page.evaluate("""() => {
+                    const els = Array.from(document.querySelectorAll('*'));
+                    const newChatEl = els.find(el => {
+                        const text = el.innerText ? el.innerText.trim() : '';
+                        return text === 'New Chat' && el.tagName !== 'SCRIPT' && el.tagName !== 'STYLE';
+                    });
+                    if (newChatEl) {
+                        newChatEl.click();
+                        return true;
+                    }
+                    return false;
+                }""")
+                if clicked_sidebar:
+                    self.log("INFO", f"Row {row_id}: Successfully clicked 'New Chat' in sidebar.")
+                    page.wait_for_timeout(2000)
+                else:
+                    self.log("INFO", f"Row {row_id}: Sidebar 'New Chat' not found. Trying keyboard shortcut...")
+                    page.keyboard.down("Control")
+                    page.keyboard.down("Shift")
+                    page.keyboard.press("k")
+                    page.keyboard.up("Shift")
+                    page.keyboard.up("Control")
+                    page.wait_for_timeout(1500)
             else:
                 self.log("SUCCESS", f"Row {row_id}: Successfully landed on a clean chat page: {url}")
                 return True
@@ -2585,7 +2601,12 @@ class DolaAutomationBot:
 
                 # Force starting a brand new chat session to ensure no old chat exists
                 if not setup_mode:
-                    self._ensure_clean_new_chat(row_id, page)
+                    if self.use_direct_api:
+                        self.log("INFO", f"Row {row_id}: Navigating to base Dola page for API mode...")
+                        page.goto("https://www.dola.com/", timeout=30000)
+                        page.wait_for_timeout(1000)
+                    else:
+                        self._ensure_clean_new_chat(row_id, page)
 
                 self.update_status(row_id, "GENERATING", "[3/5] Submitting prompt request...")
                 # ----------------------------------------------------------------
