@@ -1021,14 +1021,17 @@ class NexusAutomatorWindow(QMainWindow):
         self.cb_use_direct_api.setToolTip("Submit prompts directly using backend API fetch calls to speed up generation, bypassing browser click events.")
         self.cb_use_direct_api.stateChanged.connect(self.auto_save_direct_api_setting)
 
-        # Row 3: Control Checkboxes
-        form_grid.addWidget(self.cb_headless, 3, 0, 1, 2)
-        form_grid.addWidget(self.cb_use_vpn_mode, 3, 2, 1, 2)
-        
-        # Row 4: API Mode Checkbox
-        form_grid.addWidget(self.cb_use_direct_api, 4, 0, 1, 4)
-
         settings_layout.addLayout(form_grid)
+        settings_layout.addSpacing(6)
+
+        # Checkboxes Row (Single horizontal row)
+        cb_row = QHBoxLayout()
+        cb_row.setSpacing(20)
+        cb_row.addWidget(self.cb_headless)
+        cb_row.addWidget(self.cb_use_vpn_mode)
+        cb_row.addWidget(self.cb_use_direct_api)
+        cb_row.addStretch()
+        settings_layout.addLayout(cb_row)
 
         # Remove cb_vpn_mode — VPN mode is always Desktop App by default (no Chrome extension needed)
         self.cb_vpn_mode = QComboBox(self)  # kept as attribute for compatibility, hidden
