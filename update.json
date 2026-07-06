@@ -1,5 +1,5 @@
 {
-  "latest_version": "1.0.3",
-  "download_url": "https://github.com/zaviyanzia-bot/akira_configs/releases/download/v1.0.3/Akira_Setup.exe",
-  "changelog": "- New cleaner settings screen layout.\n- Set custom wait time for video creation.\n- Faster downloads with automatic clicking.\n- Run multiple browsers at the same time.\n- Cleaned up live log screen updates."
+  "latest_version": "1.0.5",
+  "download_url": "https://github.com/zaviyanzia-bot/akira_configs/releases/download/v1.0.5/Akira_Setup.exe",
+  "changelog": "- Switch to FAST API mode (Testing).\n- Live DOLA Cookies panel in Session Vault.\n- Added switch for Proxies/VPN in generation setting.\n- Added instructions in Top button to understand workflow.\n- Bug fix+ UI Updates accordingle."
 }
