@@ -69,29 +69,78 @@ def run_inno_setup():
 def main():
     print_banner()
     
-    # 1. Ensure Nuitka is installed
-    if not check_package("nuitka"):
-        install_package("nuitka")
-        
-    # Ensure build output folder exists
-    os.makedirs("build_output", exist_ok=True)
+    # Safety Check & Encryption Pipeline: Verify and encrypt license_config.json for release
+    config_cleaned = False
+    original_cfg = None
+    config_path = "license_config.json"
     
-    # 2. Run Nuitka standalone build command
-    print("\n[INFO] Running Nuitka compiler. This can take 3 to 10 minutes depending on your CPU...")
+    import json
+    import base64
     
-    cmd = [
-        sys.executable, "-m", "nuitka",
-        "--standalone",
-        "--python-flag=-OO",
-        "--enable-plugin=pyqt6",
-        "--windows-console-mode=disable",
-        "--assume-yes-for-downloads",
-        "--windows-icon-from-ico=logo.ico",
-        "--output-dir=build_output",
-        "main.py"
-    ]
-    
+    def encrypt_config(cfg):
+        try:
+            js_str = json.dumps(cfg)
+            xor_bytes = bytes([ord(c) ^ 42 for c in js_str])
+            return base64.b64encode(xor_bytes).decode('utf-8')
+        except Exception as ee:
+            print(f"[ERROR] Failed to encrypt config: {ee}")
+            return None
+
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                content = f.read().strip()
+            
+            # Check if it starts with { (meaning it's plain text JSON)
+            if content.startswith("{"):
+                original_cfg = json.loads(content)
+                
+                # Create a safe patched config for distribution
+                patched_cfg = original_cfg.copy()
+                patched_cfg["admin_mode"] = False
+                patched_cfg["client_mode"] = True
+                
+                encrypted_str = encrypt_config(patched_cfg)
+                if encrypted_str:
+                    with open(config_path, "w", encoding="utf-8") as f:
+                        f.write(encrypted_str)
+                    print("[INFO] Successfully encrypted and patched license_config.json for release build.")
+                    config_cleaned = True
+                else:
+                    sys.exit(1)
+        except Exception as e:
+            print(f"[WARNING] Failed to secure license_config.json: {e}")
+            
     try:
+        # 1. Ensure Nuitka is installed
+        if not check_package("nuitka"):
+            install_package("nuitka")
+            
+        # Ensure build output folder exists
+        os.makedirs("build_output", exist_ok=True)
+        
+        # Pre-clean temporary build directories from past runs to prevent Nuitka assertion errors
+        print("[INFO] Cleaning up temporary build directories from previous runs...")
+        for d in ["main.build", "main.dist", "main.onefile-build", "Akira"]:
+            path = os.path.join("build_output", d)
+            if os.path.exists(path):
+                shutil.rmtree(path, ignore_errors=True)
+        
+        # 2. Run Nuitka standalone build command
+        print("\n[INFO] Running Nuitka compiler. This can take 3 to 10 minutes depending on your CPU...")
+        
+        cmd = [
+            sys.executable, "-m", "nuitka",
+            "--standalone",
+            "--python-flag=-OO",
+            "--enable-plugin=pyqt6",
+            "--windows-console-mode=disable",
+            "--assume-yes-for-downloads",
+            "--windows-icon-from-ico=logo.ico",
+            "--output-dir=build_output",
+            "main.py"
+        ]
+        
         subprocess.run(cmd, check=True)
         print("\n[SUCCESS] Nuitka compilation complete! Standalone binary folder created.")
         
@@ -134,6 +183,17 @@ def main():
         
     except Exception as e:
         print(f"\n[ERROR] Nuitka compilation failed: {str(e)}")
+        sys.exit(1)
+        
+    finally:
+        # Restore original config
+        if config_cleaned and original_cfg:
+            try:
+                with open(config_path, "w", encoding="utf-8") as f:
+                    json.dump(original_cfg, f, indent=4)
+                print("[INFO] Restored original local configurations in license_config.json.")
+            except Exception as e:
+                print(f"[WARNING] Failed to restore config: {e}")
 
 if __name__ == "__main__":
     main()
