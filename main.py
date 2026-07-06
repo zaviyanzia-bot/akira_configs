@@ -722,6 +722,11 @@ class NexusAutomatorWindow(QMainWindow):
         
         profile_layout.addWidget(avatar)
         profile_layout.addLayout(details)
+        
+        # Make user profile box clickable to show pricing/subscription plans dialog
+        profile_box.setCursor(Qt.CursorShape.PointingHandCursor)
+        profile_box.mousePressEvent = lambda event: self.show_plans_dialog()
+        
         right_navbar_layout.addWidget(profile_box)
 
         # Header Action Buttons
@@ -2036,6 +2041,11 @@ class NexusAutomatorWindow(QMainWindow):
     def show_report_dialog(self):
         """Open the Report Issue dialog — sends report directly to admin via Telegram."""
         dlg = ReportIssueDialog(CONFIG_DATA, AKIRA_APP_VERSION, self)
+        dlg.exec()
+
+    def show_plans_dialog(self):
+        """Open the subscription plans dialog modal."""
+        dlg = AkiraPlansDialog(self)
         dlg.exec()
 
     def support_clicked(self):
@@ -8758,6 +8768,222 @@ class ReportIssueDialog(QDialog):
     def _on_error(self, err):
         self.status_lbl.setStyleSheet("color: #EF4444;")
         self.btn_submit.setText("📤  Retry")
+
+
+class AkiraPlansDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("AKIRA Subscription Plans")
+        self.setFixedSize(850, 520)
+        self.setModal(True)
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #0B0E14;
+                border: 1px solid #1E293B;
+                border-radius: 16px;
+            }
+            QLabel#Title {
+                color: #F8FAFC;
+                font-size: 16pt;
+                font-weight: bold;
+            }
+            QLabel#SubTitle {
+                color: #94A3B8;
+                font-size: 9.5pt;
+            }
+            QFrame.Card {
+                background-color: #111827;
+                border: 1px solid #1F2937;
+                border-radius: 12px;
+            }
+            QFrame.Card:hover {
+                border: 1px solid #374151;
+                background-color: #1F2937;
+            }
+            QLabel.CardTitle {
+                font-size: 11pt;
+                font-weight: bold;
+                background: transparent;
+            }
+            QLabel.CardPrice {
+                font-size: 18pt;
+                font-weight: 900;
+                background: transparent;
+            }
+            QLabel.CardDuration {
+                font-size: 8pt;
+                color: #9CA3AF;
+                background: transparent;
+            }
+            QLabel.Feature {
+                font-size: 8.5pt;
+                color: #D1D5DB;
+                background: transparent;
+            }
+            QPushButton#BtnClose {
+                background-color: #1F2937;
+                color: #F3F4F6;
+                border: 1px solid #374151;
+                border-radius: 8px;
+                padding: 8px 24px;
+                font-size: 9.5pt;
+                font-weight: bold;
+            }
+            QPushButton#BtnClose:hover {
+                background-color: #374151;
+            }
+        """)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(24, 20, 24, 20)
+        layout.setSpacing(16)
+
+        # Header
+        header = QVBoxLayout()
+        header.setSpacing(4)
+        title = QLabel("Choose Your Akira Plan")
+        title.setObjectName("Title")
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        sub = QLabel("Select the perfect video generation plan tailored to your needs")
+        sub.setObjectName("SubTitle")
+        sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        header.addWidget(title)
+        header.addWidget(sub)
+        layout.addLayout(header)
+
+        # Cards Layout
+        cards_layout = QHBoxLayout()
+        cards_layout.setSpacing(14)
+
+        plans = [
+            {
+                "name": "TRIAL",
+                "icon": "🌱",
+                "price": "Free",
+                "duration": "1 Day Limit",
+                "color": "#9CA3AF",
+                "features": [
+                    "✓ 1 Video Generation",
+                    "✓ Standard Render Speed",
+                    "✓ Trial Mode watermark",
+                    "✓ Standard Email Support",
+                    "✗ No API Access"
+                ]
+            },
+            {
+                "name": "BASIC",
+                "icon": "⚡",
+                "price": "$10",
+                "duration": "/ Month",
+                "color": "#60A5FA",
+                "features": [
+                    "✓ 5 Daily Video Runs",
+                    "✓ Fast Processing Queue",
+                    "✓ No Watermarks",
+                    "✓ 24/7 Standard Support",
+                    "✗ No API Access"
+                ]
+            },
+            {
+                "name": "PREMIUM",
+                "icon": "👑",
+                "price": "$29",
+                "duration": "/ Month",
+                "color": "#E5C17A",
+                "features": [
+                    "✓ 15 Daily Video Runs",
+                    "✓ Priority Render Slot",
+                    "✓ HD Video Quality",
+                    "✓ Dedicated Ticket Support",
+                    "✓ Beta Features Access"
+                ]
+            },
+            {
+                "name": "PLATINUM",
+                "icon": "💎",
+                "price": "$49",
+                "duration": "/ Month",
+                "color": "#C084FC",
+                "features": [
+                    "✓ Max Daily Video Runs",
+                    "✓ VIP Processing Engine",
+                    "✓ 15-Second Generation",
+                    "✓ Dedicated WhatsApp Manager",
+                    "✓ Full API Access Mode"
+                ]
+            }
+        ]
+
+        for p in plans:
+            card = QFrame()
+            card.setProperty("class", "Card")
+            card.setObjectName(f"Card_{p['name']}")
+            card_layout = QVBoxLayout(card)
+            card_layout.setContentsMargins(16, 20, 16, 20)
+            card_layout.setSpacing(12)
+
+            # Icon & Title
+            icon_lbl = QLabel(f"<span style='font-size: 24pt;'>{p['icon']}</span>")
+            icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            
+            title_lbl = QLabel(p['name'])
+            title_lbl.setProperty("class", "CardTitle")
+            title_lbl.setStyleSheet(f"color: {p['color']};")
+            title_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+            # Price
+            price_layout = QHBoxLayout()
+            price_layout.setSpacing(2)
+            price_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            
+            price_lbl = QLabel(p['price'])
+            price_lbl.setProperty("class", "CardPrice")
+            price_lbl.setStyleSheet(f"color: #F8FAFC;")
+            
+            dur_lbl = QLabel(p['duration'])
+            dur_lbl.setProperty("class", "CardDuration")
+            
+            price_layout.addWidget(price_lbl)
+            price_layout.addWidget(dur_lbl)
+
+            # Separator Line
+            sep = QFrame()
+            sep.setFrameShape(QFrame.FrameShape.HLine)
+            sep.setFrameShadow(QFrame.FrameShadow.Sunken)
+            sep.setStyleSheet("background-color: #1F2937; height: 1px; border: none;")
+
+            # Features list
+            features_layout = QVBoxLayout()
+            features_layout.setSpacing(8)
+            features_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+            for f in p['features']:
+                feat_lbl = QLabel(f)
+                feat_lbl.setProperty("class", "Feature")
+                if f.startswith("✗"):
+                    feat_lbl.setStyleSheet("color: #6B7280;")
+                features_layout.addWidget(feat_lbl)
+
+            card_layout.addWidget(icon_lbl)
+            card_layout.addWidget(title_lbl)
+            card_layout.addLayout(price_layout)
+            card_layout.addWidget(sep)
+            card_layout.addLayout(features_layout)
+            card_layout.addStretch()
+
+            cards_layout.addWidget(card)
+
+        layout.addLayout(cards_layout)
+
+        # Footer close button
+        footer = QHBoxLayout()
+        btn_close = QPushButton("Close")
+        btn_close.setObjectName("BtnClose")
+        btn_close.clicked.connect(self.accept)
+        btn_close.setCursor(Qt.CursorShape.PointingHandCursor)
+        footer.addStretch()
+        footer.addWidget(btn_close)
+        footer.addStretch()
+        layout.addLayout(footer)
 
 
 # --- APP BOOTSTRAP ---
