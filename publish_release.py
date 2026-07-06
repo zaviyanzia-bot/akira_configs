@@ -225,6 +225,42 @@ def main():
         print("[INFO] Build aborted.")
         sys.exit(0)
         
+    # Safety Check & Encryption Pipeline: Verify and encrypt license_config.json for release
+    config_cleaned = False
+    original_cfg = None
+    config_path = "license_config.json"
+    
+    import base64
+    def encrypt_config(cfg):
+        try:
+            js_str = json.dumps(cfg)
+            xor_bytes = bytes([ord(c) ^ 42 for c in js_str])
+            return base64.b64encode(xor_bytes).decode('utf-8')
+        except Exception as ee:
+            print(f"[ERROR] Failed to encrypt config: {ee}")
+            return None
+
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                original_cfg = json.load(f)
+            
+            # Create a safe patched config for distribution
+            patched_cfg = original_cfg.copy()
+            patched_cfg["admin_mode"] = False
+            patched_cfg["client_mode"] = True
+            
+            encrypted_str = encrypt_config(patched_cfg)
+            if encrypted_str:
+                with open(config_path, "w", encoding="utf-8") as f:
+                    f.write(encrypted_str)
+                print("[INFO] Successfully encrypted and patched license_config.json for release.")
+                config_cleaned = True
+            else:
+                sys.exit(1)
+        except Exception as e:
+            print(f"[WARNING] Failed to secure license_config.json: {e}")
+
     # Update local project version configurations
     if not update_iss_file(target_version):
         sys.exit(1)
@@ -233,23 +269,42 @@ def main():
         
     # Compile the executable standalone setup binary
     if not compile_software():
+        # Restore config if we fail mid-build
+        if config_cleaned and original_cfg:
+            with open(config_path, "w", encoding="utf-8") as f:
+                json.dump(original_cfg, f, indent=4)
         sys.exit(1)
         
     # Create the release on GitHub
     release_res = create_github_release(target_version, changelog, token)
     if not release_res:
+        if config_cleaned and original_cfg:
+            with open(config_path, "w", encoding="utf-8") as f:
+                json.dump(original_cfg, f, indent=4)
         print("[ERROR] Failed to create GitHub Release. Aborting.")
         sys.exit(1)
         
     # Upload setup.exe asset to release
     upload_url = release_res.get("upload_url")
     if not upload_url or not upload_release_asset(upload_url, token):
+        if config_cleaned and original_cfg:
+            with open(config_path, "w", encoding="utf-8") as f:
+                json.dump(original_cfg, f, indent=4)
         print("[ERROR] Failed to upload release asset. Aborting.")
         sys.exit(1)
         
     # Push updated config files back to GitHub main branch
     push_configs_to_github()
     
+    # Restore original config
+    if config_cleaned and original_cfg:
+        try:
+            with open(config_path, "w", encoding="utf-8") as f:
+                json.dump(original_cfg, f, indent=4)
+            print("[INFO] Restored original local configurations in license_config.json.")
+        except Exception as e:
+            print(f"[WARNING] Failed to restore config: {e}")
+
     print("\n" + "=" * 60)
     print(" [RELEASE COMPLETED] Version v%s is now live!" % target_version)
     print("=" * 60 + "\n")

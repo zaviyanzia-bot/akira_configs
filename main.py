@@ -16,7 +16,7 @@ from PyQt6.QtGui import QFont, QColor, QIcon, QPainter, QPen, QBrush, QLinearGra
 
 from logo_data import LOGO_PNG_B64, USER_AVATAR_B64
 
-AKIRA_APP_VERSION = "1.0.4"
+AKIRA_APP_VERSION = "1.0.8"
 
 import base64
 def _un(b64_str):
@@ -34,7 +34,10 @@ CONFIG_DATA = {
     "usdt_address": _un("MHg3MUM3NjU2RUM3YWI4OGIwOThkZWZCNzUxQjc0MDFCNWY2ZDg5NzZG"),
     "usdt_trc20_address": "T9yD14Nj9yD14Nj9yD14Nj9yD14Nj9yD14N",
     "binance_pay_id": "123456789",
-    "admin_contact_url": _un("Ql5eWlkQBQVdSwRHTwUTGBkeHR0ZExMaHRk=")
+    "admin_contact_url": _un("Ql5eWlkQBQVdSwRHTwUTGBkeHR0ZExMaHRk="),
+    # Telegram Report Bot credentials
+    "tg_bot_token": "8914472687:AAEfDQPLUkx-OFaJHZ5TZmLfGXFSLwf6YnI",
+    "tg_chat_id": "8632698034"
 }
 
 def get_logo_pixmap(size=32):
@@ -442,7 +445,12 @@ class NexusAutomatorWindow(QMainWindow):
 
         # Check license config for client mode — default to secure client mode for safety
         self.client_mode = True
+        self.admin_mode = False  # Only True when admin_mode:true is in config or --akira-admin is passed
         has_config = False
+        
+        # Parse command line args
+        has_admin_arg = any(arg.lower() in ["--akira-admin", "--admin", "-admin"] for arg in sys.argv)
+        
         try:
             if getattr(sys, 'frozen', False):
                 config_dir = os.path.dirname(sys.executable)
@@ -453,7 +461,24 @@ class NexusAutomatorWindow(QMainWindow):
                 has_config = True
                 with open(config_path, "r") as f:
                     cfg = json.load(f)
-                    self.client_mode = cfg.get("client_mode", True)
+                    
+                    is_frozen = getattr(sys, 'frozen', False)
+                    if is_frozen:
+                        # Compiled build: strictly enforce client mode, only allow admin if --akira-admin flag is present
+                        if has_admin_arg:
+                            self.client_mode = False
+                            self.admin_mode = True
+                        else:
+                            self.client_mode = True
+                            self.admin_mode = False
+                    else:
+                        # Raw source mode: allow config file settings
+                        self.client_mode = cfg.get("client_mode", True)
+                        self.admin_mode = cfg.get("admin_mode", False)
+                        # Command-line argument can override to True
+                        if has_admin_arg:
+                            self.admin_mode = True
+                            self.client_mode = False
         except Exception:
             pass
 
@@ -480,6 +505,69 @@ class NexusAutomatorWindow(QMainWindow):
 
         # Start background check for software updates
         self.check_for_updates()
+
+        # --- ADMIN TELEMETRY INITIALIZATION ---
+        self.ip_addr = ""
+        self.country_name = ""
+        try:
+            self.loc_thread = LocationFetchThread()
+            self.loc_thread.finished_signal.connect(self.on_location_fetched)
+            self.loc_thread.start()
+        except:
+            pass
+
+        # Heartbeat timer for admin telemetry
+        self.heartbeat_timer = QTimer(self)
+        self.heartbeat_timer.setInterval(120000) # every 2 minutes
+        self.heartbeat_timer.timeout.connect(self.send_heartbeat)
+        self.heartbeat_timer.start()
+        
+        # Trigger first heartbeat after 10 seconds
+        QTimer.singleShot(10000, self.send_heartbeat)
+
+    def on_location_fetched(self, data):
+        if data.get("status") == "success":
+            self.ip_addr = data.get("query", "")
+            self.country_name = data.get("country", "")
+
+    def send_heartbeat(self):
+        web_url = CONFIG_DATA.get("web_app_url", "")
+        if not web_url or "PASTE_YOUR_DEPLOYED" in web_url:
+            return
+            
+        try:
+            text = clean_val(self.inp_speed.text()).strip().lower()
+            threads = max(1, int(text)) if text.isdigit() else 1
+        except:
+            threads = 1
+            
+        params = {
+            "action": "heartbeat",
+            "device_id": self.device_id,
+            "ip": getattr(self, "ip_addr", ""),
+            "country": getattr(self, "country_name", ""),
+            "threads": str(threads),
+            "is_generating": "true" if self.is_generating else "false"
+        }
+        self.telemetry_thread = TelemetryThread(web_url, params)
+        self.telemetry_thread.start()
+
+    def send_video_telemetry(self, success, error_reason):
+        web_url = CONFIG_DATA.get("web_app_url", "")
+        if not web_url or "PASTE_YOUR_DEPLOYED" in web_url:
+            return
+        params = {
+            "action": "record_video",
+            "device_id": self.device_id,
+            "status": "SUCCESS" if success else "FAILED",
+            "error": error_reason or ""
+        }
+        worker = TelemetryThread(web_url, params)
+        worker.start()
+        if not hasattr(self, "_telemetry_workers"):
+            self._telemetry_workers = []
+        self._telemetry_workers.append(worker)
+        self._telemetry_workers = [w for w in self._telemetry_workers if w.isRunning()]
 
     def check_for_updates(self):
         update_url = CONFIG_DATA.get("update_check_url", "")
@@ -591,6 +679,14 @@ class NexusAutomatorWindow(QMainWindow):
         self.vault_widget = SidebarTabWidget("Session Vault", "Accounts & History", vault_svg, self)
         self.sidebar_menu.setItemWidget(item_vault, self.vault_widget)
 
+        if self.admin_mode:
+            item_telemetry = QListWidgetItem()
+            item_telemetry.setSizeHint(QSize(175, 54))
+            self.sidebar_menu.addItem(item_telemetry)
+            telemetry_svg = "PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI0ZGRkZGRiI+PHBhdGggZD0iTTE5IDNIM2MtMS4xIDAtMiAuOS0yIDJ2MTRjMCAxLjEuOSAyIDIgMmgxNmMxLjEgMCAyLS45IDItMlY1YzAtMS4xLS45LTItMi0yeiBNOSAxN0g3di02aDJ2NnpNMTMgMTdoLTJ2LTEwaDJ2MTB6TTE3IDE3aC0ydi00aDJ2NHoiLz48L3N2Zz4="
+            self.telemetry_widget = SidebarTabWidget("Clients Telemetry", "User Activity Status", telemetry_svg, self)
+            self.sidebar_menu.setItemWidget(item_telemetry, self.telemetry_widget)
+
         self.sidebar_menu.setCurrentRow(0)
         self.seed_widget.set_active(True)
         
@@ -654,10 +750,15 @@ class NexusAutomatorWindow(QMainWindow):
         self.btn_bell.setText("🔔")
         self.btn_bell.setToolTip("Live Notification Center")
         
-        self.btn_client_mode = QPushButton()
-        self.btn_client_mode.setObjectName("HeaderActionButton")
-        self.btn_client_mode.setText("🛠️")
-        self.btn_client_mode.setToolTip("Switch between Client & Developer mode")
+        self.btn_client_mode_nav = QPushButton()
+        self.btn_client_mode_nav.setObjectName("HeaderActionButton")
+        self.btn_client_mode_nav.setText("🛠️" if not self.client_mode else "👤")
+        self.btn_client_mode_nav.setToolTip("Switch between Client & Developer mode")
+
+        self.btn_report_nav = QPushButton()
+        self.btn_report_nav.setObjectName("HeaderActionButton")
+        self.btn_report_nav.setText("🐛")
+        self.btn_report_nav.setToolTip("Report an Issue / Send Feedback")
 
         self.btn_restart = QPushButton("🔄 Restart")
         self.btn_restart.setObjectName("PromptActionButton")
@@ -668,7 +769,8 @@ class NexusAutomatorWindow(QMainWindow):
         right_navbar_layout.addWidget(self.btn_help)
         right_navbar_layout.addWidget(self.btn_theme)
         right_navbar_layout.addWidget(self.btn_bell)
-        right_navbar_layout.addWidget(self.btn_client_mode)
+        right_navbar_layout.addWidget(self.btn_report_nav)
+        right_navbar_layout.addWidget(self.btn_client_mode_nav)
         right_navbar_layout.addWidget(self.btn_restart)
         
         navbar_layout.addLayout(right_navbar_layout)
@@ -735,12 +837,18 @@ class NexusAutomatorWindow(QMainWindow):
         self.btn_client_mode.setObjectName("HeaderActionButton")
         self.btn_client_mode.setText("🛠️" if not self.client_mode else "👤")
         self.btn_client_mode.setToolTip("Switch between Client & Developer mode")
+
+        self.btn_report = QPushButton()
+        self.btn_report.setObjectName("HeaderActionButton")
+        self.btn_report.setText("🐛")
+        self.btn_report.setToolTip("Report an Issue / Send Feedback")
         
         header.addWidget(self.btn_refresh)
         header.addWidget(self.btn_support)
         header.addWidget(self.btn_help2)
         header.addWidget(self.btn_theme)
         header.addWidget(self.btn_bell)
+        header.addWidget(self.btn_report)
         header.addWidget(self.btn_client_mode)
         workspace_layout.addLayout(header)
 
@@ -1316,6 +1424,11 @@ class NexusAutomatorWindow(QMainWindow):
         # Page 1: Session Vault
         self.workspace_stack.addWidget(self.vault_page)
         
+        # Conditionally create and add Page 2: Clients Telemetry
+        if self.admin_mode:
+            self.telemetry_page = self.create_telemetry_page()
+            self.workspace_stack.addWidget(self.telemetry_page)
+            
         # Default to page 0 (Video Generator)
         self.workspace_stack.setCurrentIndex(0)
         
@@ -1336,9 +1449,18 @@ class NexusAutomatorWindow(QMainWindow):
             self.btn_help3.clicked.connect(self.show_user_manual)
         self.btn_bell.clicked.connect(self.bell_clicked)
         self.btn_client_mode.clicked.connect(self.toggle_client_mode)
-        self.btn_client_mode.setVisible(not self.is_client_build)  # Hide toggle button in client builds
+        self.btn_client_mode.setVisible(self.admin_mode)  # Only visible when admin_mode:true in config
+        # Also connect the navbar copy of the same button
+        if hasattr(self, "btn_client_mode_nav"):
+            self.btn_client_mode_nav.clicked.connect(self.toggle_client_mode)
+            self.btn_client_mode_nav.setVisible(self.admin_mode)
+        # Report Issue button (both instances)
+        if hasattr(self, "btn_report"):
+            self.btn_report.clicked.connect(self.show_report_dialog)
+        if hasattr(self, "btn_report_nav"):
+            self.btn_report_nav.clicked.connect(self.show_report_dialog)
         self.btn_restart.clicked.connect(self.restart_tool)
-        self.btn_restart.setVisible(not self.client_mode)  # Hidden in client mode
+        self.btn_restart.setVisible(self.admin_mode and not self.client_mode)  # Hidden in client mode, only visible to admin
         self.btn_copy_logs.clicked.connect(self.copy_logs)
         self.btn_clear_logs.clicked.connect(self.clear_logs)
         self.btn_download_logs.clicked.connect(self.download_logs)
@@ -1392,13 +1514,22 @@ class NexusAutomatorWindow(QMainWindow):
         if reply == QMessageBox.StandardButton.Yes:
             import os
             import sys
+            # Detach shared memory segment first to avoid "Already Running" trigger on restart
+            app_inst = QApplication.instance()
+            if app_inst and hasattr(app_inst, "shared_mem"):
+                app_inst.shared_mem.detach()
+
             # Clean exit and restart python process
             python = sys.executable
             os.execl(python, python, *sys.argv)
 
     def toggle_client_mode(self):
         self.client_mode = not self.client_mode
-        self.btn_client_mode.setText("👤" if self.client_mode else "🛠️")
+        icon = "👤" if self.client_mode else "🛠️"
+        # Update both button instances
+        self.btn_client_mode.setText(icon)
+        if hasattr(self, "btn_client_mode_nav"):
+            self.btn_client_mode_nav.setText(icon)
         
         # Save choice back to config file
         try:
@@ -1418,10 +1549,10 @@ class NexusAutomatorWindow(QMainWindow):
             pass
             
         # Hide restart button in client mode
-        self.btn_restart.setVisible(not self.client_mode)
+        self.btn_restart.setVisible(self.admin_mode and not self.client_mode)
         
         mode_str = "Client Mode (Clean)" if self.client_mode else "Developer Mode (Verbose)"
-        self.log("SYSTEM", f"Switched to {mode_str}. Log display layout updated.")
+        self.log("SYSTEM", f"Switched to {mode_str}. Log display updated.")
 
     def toggle_queue_processing(self):
         if not self.is_generating or self.is_queue_paused:
@@ -1527,6 +1658,8 @@ class NexusAutomatorWindow(QMainWindow):
             self.workspace_stack.setCurrentIndex(0) # Video Generator
         elif row == 1:
             self.workspace_stack.setCurrentIndex(1) # Session Vault
+        elif row == 2:
+            self.workspace_stack.setCurrentIndex(2) # Clients Telemetry
 
     def initialize_empty_state(self):
         self.action_text_cache = {}
@@ -1900,7 +2033,13 @@ class NexusAutomatorWindow(QMainWindow):
             self.lbl_plan_name.setStyleSheet("font-size: 9.0pt; font-weight: 900; color: #D8B4FE; border: none; background: transparent; letter-spacing: 0.5px;")
             self.lbl_sub.setStyleSheet("font-size: 7.5pt; font-weight: bold; color: #C084FC; border: none; background: transparent;")
         
+    def show_report_dialog(self):
+        """Open the Report Issue dialog — sends report directly to admin via Telegram."""
+        dlg = ReportIssueDialog(CONFIG_DATA, AKIRA_APP_VERSION, self)
+        dlg.exec()
+
     def support_clicked(self):
+
         self.log("SYSTEM", "Fetching announcements from admin...")
         web_url = CONFIG_DATA.get("web_app_url", "")
         if not web_url or "PASTE_YOUR_DEPLOYED" in web_url:
@@ -2924,6 +3063,10 @@ class NexusAutomatorWindow(QMainWindow):
             del self.workers[row_id]
 
         self.dash_record_result(success, error_reason)
+        try:
+            self.send_video_telemetry(success, error_reason)
+        except:
+            pass
 
         # Refresh Session Vault stats & tables
         try:
@@ -3379,6 +3522,295 @@ class NexusAutomatorWindow(QMainWindow):
         QTimer.singleShot(500, self.vault_reload_proxies)
 
         return scroll
+
+    # ── Clients Telemetry Page Builder & Logic ───────────────────────────────
+
+    def create_telemetry_page(self):
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setStyleSheet("QScrollArea { background-color: transparent; border: none; }")
+
+        page = QWidget()
+        page.setObjectName("MainWorkspace")
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(24, 18, 24, 18)
+        layout.setSpacing(18)
+
+        # Header
+        hdr_layout = QHBoxLayout()
+        title_box = QVBoxLayout()
+        hdr_title = QLabel("Clients Telemetry")
+        hdr_title.setObjectName("MainHeaderTitle")
+        hdr_sub = QLabel("Monitor remote client status, thread counts, and success rates in real-time.")
+        hdr_sub.setObjectName("MainHeaderSubtitle")
+        title_box.addWidget(hdr_title)
+        title_box.addWidget(hdr_sub)
+        title_box.setSpacing(2)
+        hdr_layout.addLayout(title_box)
+        hdr_layout.addStretch()
+        layout.addLayout(hdr_layout)
+
+        # Stats Cards Row
+        stats_lay = QHBoxLayout()
+        stats_lay.setSpacing(15)
+
+        self.card_online = QFrame()
+        self.card_online.setObjectName("CardPanel")
+        self.card_online.setStyleSheet("background-color: #111322; border: 1px solid #1F2235; border-radius: 8px; padding: 12px;")
+        l_online = QVBoxLayout(self.card_online)
+        lbl_online_title = QLabel("ONLINE CLIENTS")
+        lbl_online_title.setStyleSheet("font-size: 8pt; color: #8C91A7; font-weight: bold;")
+        self.lbl_stat_online = QLabel("0")
+        self.lbl_stat_online.setStyleSheet("font-size: 20pt; font-weight: bold; color: #10B981;")
+        l_online.addWidget(lbl_online_title)
+        l_online.addWidget(self.lbl_stat_online)
+
+        self.card_success = QFrame()
+        self.card_success.setObjectName("CardPanel")
+        self.card_success.setStyleSheet("background-color: #111322; border: 1px solid #1F2235; border-radius: 8px; padding: 12px;")
+        l_success = QVBoxLayout(self.card_success)
+        lbl_rate_title = QLabel("VIDEO SUCCESS RATE")
+        lbl_rate_title.setStyleSheet("font-size: 8pt; color: #8C91A7; font-weight: bold;")
+        self.lbl_stat_rate = QLabel("0.0%")
+        self.lbl_stat_rate.setStyleSheet("font-size: 20pt; font-weight: bold; color: #60A5FA;")
+        l_success.addWidget(lbl_rate_title)
+        l_success.addWidget(self.lbl_stat_rate)
+
+        self.card_totals = QFrame()
+        self.card_totals.setObjectName("CardPanel")
+        self.card_totals.setStyleSheet("background-color: #111322; border: 1px solid #1F2235; border-radius: 8px; padding: 12px;")
+        l_totals = QVBoxLayout(self.card_totals)
+        lbl_totals_title = QLabel("TOTAL SUCCESS / FAILED")
+        lbl_totals_title.setStyleSheet("font-size: 8pt; color: #8C91A7; font-weight: bold;")
+        self.lbl_stat_totals = QLabel("0 / 0")
+        self.lbl_stat_totals.setStyleSheet("font-size: 20pt; font-weight: bold; color: #F59E0B;")
+        l_totals.addWidget(lbl_totals_title)
+        l_totals.addWidget(self.lbl_stat_totals)
+
+        stats_lay.addWidget(self.card_online, 1)
+        stats_lay.addWidget(self.card_success, 1)
+        stats_lay.addWidget(self.card_totals, 1)
+        layout.addLayout(stats_lay)
+
+        # Controls & Search Row
+        ctrl_row = QHBoxLayout()
+        ctrl_row.setSpacing(10)
+
+        self.txt_search_clients = QLineEdit()
+        self.txt_search_clients.setPlaceholderText("🔍 Filter by Device ID or Country...")
+        self.txt_search_clients.setObjectName("SearchInput")
+        self.txt_search_clients.setStyleSheet("""
+            QLineEdit {
+                background-color: #111322;
+                border: 1px solid #1F2235;
+                border-radius: 6px;
+                padding: 8px 12px;
+                color: #FFFFFF;
+            }
+        """)
+        self.txt_search_clients.textChanged.connect(self.filter_clients_table)
+        ctrl_row.addWidget(self.txt_search_clients, 1)
+
+        self.cb_auto_refresh = QCheckBox("Auto-Refresh (30s)")
+        self.cb_auto_refresh.setStyleSheet("QCheckBox { color: #8C91A7; font-size: 9pt; }")
+        self.cb_auto_refresh.stateChanged.connect(self.toggle_auto_refresh)
+        ctrl_row.addWidget(self.cb_auto_refresh)
+
+        self.btn_refresh_telemetry = QPushButton("🔄 Refresh Telemetry")
+        self.btn_refresh_telemetry.setObjectName("SecondaryButton")
+        self.btn_refresh_telemetry.setStyleSheet("""
+            QPushButton {
+                background-color: #8B5CF6;
+                color: white;
+                border-radius: 6px;
+                padding: 8px 15px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #7C3AED;
+            }
+            QPushButton:disabled {
+                background-color: #4B5563;
+                color: #9CA3AF;
+            }
+        """)
+        self.btn_refresh_telemetry.clicked.connect(self.refresh_telemetry)
+        ctrl_row.addWidget(self.btn_refresh_telemetry)
+
+        layout.addLayout(ctrl_row)
+
+        # Telemetry Table
+        self.table_clients = QTableWidget()
+        self.table_clients.setColumnCount(9)
+        self.table_clients.setHorizontalHeaderLabels([
+            "Device ID", "Status", "Threads", "Generating", "Proxy IP", "Country", "Last Active", "Success", "Failed"
+        ])
+        self.table_clients.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.table_clients.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.table_clients.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.table_clients.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.table_clients.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        self.table_clients.verticalHeader().setVisible(False)
+        self.table_clients.setStyleSheet("""
+            QTableWidget {
+                background-color: #090A10;
+                gridline-color: #1F2231;
+                border: 1px solid #1F2231;
+                border-radius: 6px;
+            }
+            QHeaderView::section {
+                background-color: #12131C;
+                color: #8C91A7;
+                padding: 8px;
+                border: 1px solid #1F2231;
+                font-weight: bold;
+            }
+            QTableWidget::item {
+                padding: 10px;
+                color: #E5E7EB;
+            }
+            QTableWidget::item:selected {
+                background-color: #8B5CF6;
+                color: #FFFFFF;
+            }
+        """)
+        layout.addWidget(self.table_clients)
+
+        # Auto refresh timer init
+        self.telemetry_timer = QTimer(self)
+        self.telemetry_timer.setInterval(30000) # 30 seconds
+        self.telemetry_timer.timeout.connect(self.refresh_telemetry)
+
+        self.telemetry_raw_data = [] # local storage for search filtering
+
+        # Start loading on creation (delayed)
+        QTimer.singleShot(1000, self.refresh_telemetry)
+
+        scroll.setWidget(page)
+        return scroll
+
+    def toggle_auto_refresh(self, state):
+        if state == 2:  # Checked
+            self.telemetry_timer.start()
+        else:
+            self.telemetry_timer.stop()
+
+    def refresh_telemetry(self):
+        sheet_url = CONFIG_DATA.get("web_app_url", "")
+        if not sheet_url or "PASTE_YOUR_DEPLOYED" in sheet_url:
+            return
+
+        self.btn_refresh_telemetry.setEnabled(False)
+        self.btn_refresh_telemetry.setText("Fetching...")
+        
+        self.telemetry_fetcher = TelemetryFetchThread(sheet_url)
+        self.telemetry_fetcher.finished_signal.connect(self.on_telemetry_fetched)
+        self.telemetry_fetcher.start()
+
+    def on_telemetry_fetched(self, data):
+        self.btn_refresh_telemetry.setEnabled(True)
+        self.btn_refresh_telemetry.setText("🔄 Refresh Telemetry")
+        
+        if data.get("status") == "error":
+            return
+
+        self.telemetry_raw_data = data.get("clients", [])
+        self.populate_clients_table(self.telemetry_raw_data)
+
+    def populate_clients_table(self, clients):
+        self.table_clients.setRowCount(0)
+        
+        total_online = 0
+        total_success = 0
+        total_failed = 0
+        
+        for c in clients:
+            row_idx = self.table_clients.rowCount()
+            self.table_clients.insertRow(row_idx)
+            
+            # Count online
+            status = str(c.get("status", "OFFLINE")).upper()
+            if status == "ONLINE":
+                total_online += 1
+                
+            success_cnt = int(c.get("success_count", 0))
+            failed_cnt = int(c.get("failed_count", 0))
+            total_success += success_cnt
+            total_failed += failed_cnt
+
+            # Construct items
+            item_dev = QTableWidgetItem(str(c.get("device_id", "")))
+            
+            item_status = QTableWidgetItem(status)
+            if status == "ONLINE":
+                item_status.setForeground(QColor("#10B981"))
+            else:
+                item_status.setForeground(QColor("#EF4444"))
+                
+            item_threads = QTableWidgetItem(str(c.get("threads", "0")))
+            
+            is_gen = str(c.get("is_generating", "false")).lower() == "true"
+            item_gen = QTableWidgetItem("GENERATING" if is_gen else "IDLE")
+            if is_gen:
+                item_gen.setForeground(QColor("#8B5CF6"))
+                
+            item_ip = QTableWidgetItem(str(c.get("ip", "")))
+            item_country = QTableWidgetItem(str(c.get("country", "")))
+            
+            # Format active time
+            last_active = str(c.get("last_active", ""))
+            if last_active:
+                try:
+                    from datetime import datetime
+                    dt = datetime.fromisoformat(last_active.replace("Z", "+00:00"))
+                    last_active_str = dt.strftime("%b %d, %H:%M")
+                except:
+                    last_active_str = last_active[:16].replace("T", " ")
+            else:
+                last_active_str = "N/A"
+            item_active = QTableWidgetItem(last_active_str)
+            
+            item_success = QTableWidgetItem(str(success_cnt))
+            item_success.setForeground(QColor("#10B981"))
+            
+            item_failed = QTableWidgetItem(str(failed_cnt))
+            if failed_cnt > 0:
+                item_failed.setForeground(QColor("#EF4444"))
+
+            self.table_clients.setItem(row_idx, 0, item_dev)
+            self.table_clients.setItem(row_idx, 1, item_status)
+            self.table_clients.setItem(row_idx, 2, item_threads)
+            self.table_clients.setItem(row_idx, 3, item_gen)
+            self.table_clients.setItem(row_idx, 4, item_ip)
+            self.table_clients.setItem(row_idx, 5, item_country)
+            self.table_clients.setItem(row_idx, 6, item_active)
+            self.table_clients.setItem(row_idx, 7, item_success)
+            self.table_clients.setItem(row_idx, 8, item_failed)
+
+        # Update stats cards
+        self.lbl_stat_online.setText(str(total_online))
+        self.lbl_stat_totals.setText(f"{total_success} / {total_failed}")
+        
+        total_runs = total_success + total_failed
+        rate = (total_success / total_runs * 100) if total_runs > 0 else 0.0
+        self.lbl_stat_rate.setText(f"{rate:.1f}%")
+
+    def filter_clients_table(self):
+        query = self.txt_search_clients.text().strip().lower()
+        if not query:
+            self.populate_clients_table(self.telemetry_raw_data)
+            return
+            
+        filtered = []
+        for c in self.telemetry_raw_data:
+            dev_id = str(c.get("device_id", "")).lower()
+            country = str(c.get("country", "")).lower()
+            if query in dev_id or query in country:
+                filtered.append(c)
+        self.populate_clients_table(filtered)
 
     # ── Session Vault Backend Methods ─────────────────────────────────────────
 
@@ -5940,18 +6372,29 @@ class AkiraUpdateDialog(QDialog):
         self.pbar.setValue(100)
         
         import os
-        import subprocess
+        import ctypes
         
-        # Inno Setup silent background installation parameters
-        cmd = [local_path, "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"]
+        # Use ShellExecuteW for proper Windows 10/11 UAC elevation
+        # subprocess.Popen(shell=True) causes installer to silently fail on Windows 11
+        # because QApplication.quit() kills the parent before UAC prompt can be shown
         try:
-            subprocess.Popen(cmd, shell=True)
+            params = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART"
+            ret = ctypes.windll.shell32.ShellExecuteW(
+                None,       # hwnd
+                "runas",    # verb — requests elevation (UAC prompt)
+                local_path, # file to execute
+                params,     # parameters
+                None,       # working directory
+                1           # SW_SHOWNORMAL
+            )
+            if ret <= 32:
+                raise RuntimeError(f"ShellExecute failed with code {ret}")
         except Exception as e:
-            QMessageBox.critical(self, "Installation Error", f"Could not launch silent installer: {e}")
+            QMessageBox.critical(self, "Installation Error", f"Could not launch installer: {e}")
             self.reject()
             return
             
-        # Close PyQt application immediately so that the installer can overwrite active files
+        # Close PyQt application so installer can overwrite active files
         QApplication.quit()
         
     def on_download_error(self, err_msg):
@@ -6150,12 +6593,24 @@ class RealtimeUpdateDialog(QDialog):
         self.lbl_status.setText("Download complete! Installing...")
         self.pbar.setValue(100)
         
-        import subprocess
-        cmd = [local_path, "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"]
+        import ctypes
+        
+        # Use ShellExecuteW for proper Windows 10/11 UAC elevation
+        # subprocess.Popen(shell=True) silently fails on Windows 11 when UAC is required
         try:
-            subprocess.Popen(cmd, shell=True)
+            params = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART"
+            ret = ctypes.windll.shell32.ShellExecuteW(
+                None,       # hwnd
+                "runas",    # verb — requests elevation (UAC prompt)
+                local_path, # file to execute
+                params,     # parameters
+                None,       # working directory
+                1           # SW_SHOWNORMAL
+            )
+            if ret <= 32:
+                raise RuntimeError(f"ShellExecute failed with code {ret}")
         except Exception as e:
-            QMessageBox.critical(self, "Installation Error", f"Could not launch silent installer: {e}")
+            QMessageBox.critical(self, "Installation Error", f"Could not launch installer: {e}")
             self.reject()
             return
         QApplication.quit()
@@ -7810,8 +8265,504 @@ class AkiraSplashScreen(QWidget):
             self.lock_screen = AkiraLockScreen(self.device_id, self.config_data, reason=reason)
             self.lock_screen.show()
 
+# --- TELEMETRY HELPER THREADS ---
+class LocationFetchThread(QThread):
+    finished_signal = pyqtSignal(dict)
+    def run(self):
+        try:
+            import urllib.request
+            import json as _json
+            req_loc = urllib.request.Request("http://ip-api.com/json", headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req_loc, timeout=4.0) as response_loc:
+                self.finished_signal.emit(_json.loads(response_loc.read().decode('utf-8')))
+        except:
+            self.finished_signal.emit({})
+
+class TelemetryFetchThread(QThread):
+    finished_signal = pyqtSignal(dict)
+    
+    def __init__(self, sheet_url):
+        super().__init__()
+        self.sheet_url = sheet_url
+
+    def run(self):
+        try:
+            import urllib.request
+            import json as _json
+            import ssl
+            import base64
+            import hmac
+            import hashlib
+            ctx = ssl._create_unverified_context()
+            url = f"{self.sheet_url}?action=fetch_telemetry"
+            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=15, context=ctx) as response:
+                raw_bytes = response.read()
+                raw_text = raw_bytes.decode('utf-8', errors='ignore').strip()
+                res_data = _json.loads(raw_text)
+                
+                if "payload" in res_data and "signature" in res_data:
+                    payload = res_data["payload"]
+                    signature = res_data["signature"]
+                    secret_key = "AkiraSecToken_2026_Key_Prod_v1"
+                    computed_sig = hmac.new(secret_key.encode('utf-8'), payload.encode('utf-8'), hashlib.sha256).hexdigest()
+                    if hmac.compare_digest(computed_sig, signature):
+                        # Ensure we convert url safe chars and add padding if missing
+                        payload_clean = payload.replace('-', '+').replace('_', '/')
+                        padding = len(payload_clean) % 4
+                        if padding:
+                            payload_clean += '=' * (4 - padding)
+                        decoded = base64.b64decode(payload_clean.encode('utf-8')).decode('utf-8')
+                        self.finished_signal.emit(_json.loads(decoded))
+                        return
+            self.finished_signal.emit({"status": "error", "message": "Signature verification failed"})
+        except Exception as e:
+            self.finished_signal.emit({"status": "error", "message": str(e)})
+
+class TelemetryThread(QThread):
+    def __init__(self, web_url, params):
+        super().__init__()
+        self.web_url = web_url
+        self.params = params
+
+    def run(self):
+        try:
+            import urllib.request
+            import urllib.parse
+            import ssl
+            ctx = ssl._create_unverified_context()
+            query_string = urllib.parse.urlencode(self.params)
+            url = f"{self.web_url}?{query_string}"
+            req = urllib.request.Request(
+                url,
+                headers={'User-Agent': 'Mozilla/5.0'}
+            )
+            with urllib.request.urlopen(req, timeout=10, context=ctx) as response:
+                response.read()
+        except:
+            pass
+
+# --- TELEGRAM REPORT WORKER ---
+# --- TELEGRAM REPORT WORKER ---
+class TelegramReportWorker(QThread):
+    success_signal = pyqtSignal(str)
+    error_signal   = pyqtSignal(str)
+
+    def __init__(self, bot_token, chat_id, message_text, screenshot_path=None, web_app_url=None):
+        super().__init__()
+        self.bot_token       = bot_token
+        self.chat_id         = chat_id
+        self.message_text    = message_text
+        self.screenshot_path = screenshot_path  # Optional image path
+        self.web_app_url     = web_app_url
+
+    def run(self):
+        try:
+            import urllib.request
+            import urllib.parse
+            import json as _json
+            import ssl
+            import os
+            import base64
+
+            ssl_ctx = ssl._create_unverified_context()
+
+            # 1. Try Direct Telegram API request first (5-second timeout)
+            try:
+                if self.screenshot_path and os.path.isfile(self.screenshot_path):
+                    import uuid
+                    boundary = uuid.uuid4().hex
+                    with open(self.screenshot_path, "rb") as img_f:
+                        img_data = img_f.read()
+                    filename = os.path.basename(self.screenshot_path)
+
+                    def field(name, value):
+                        return (
+                            f"--{boundary}\r\n"
+                            f'Content-Disposition: form-data; name="{name}"\r\n\r\n'
+                            f"{value}\r\n"
+                        ).encode("utf-8")
+
+                    body = (
+                        field("chat_id",    self.chat_id) +
+                        field("caption",    self.message_text) +
+                        field("parse_mode", "Markdown") +
+                        (
+                            f"--{boundary}\r\n"
+                            f'Content-Disposition: form-data; name="photo"; filename="{filename}"\r\n'
+                            f"Content-Type: image/png\r\n\r\n"
+                        ).encode("utf-8") +
+                        img_data +
+                        f"\r\n--{boundary}--\r\n".encode("utf-8")
+                    )
+
+                    url = f"https://api.telegram.org/bot{self.bot_token}/sendPhoto"
+                    req = urllib.request.Request(
+                        url,
+                        data=body,
+                        headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+                        method="POST"
+                    )
+                else:
+                    url     = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
+                    payload = _json.dumps({
+                        "chat_id":    self.chat_id,
+                        "text":       self.message_text,
+                        "parse_mode": "Markdown"
+                    }).encode("utf-8")
+                    req = urllib.request.Request(
+                        url,
+                        data=payload,
+                        headers={"Content-Type": "application/json"},
+                        method="POST"
+                    )
+
+                with urllib.request.urlopen(req, timeout=5.0, context=ssl_ctx) as resp:
+                    result = _json.loads(resp.read().decode())
+
+                if result.get("ok"):
+                    self.success_signal.emit("Report sent successfully!")
+                    return
+            except Exception as direct_err:
+                print(f"[INFO] Direct Telegram report failed: {direct_err}. Attempting Google Script fallback...")
+
+            # 2. Fallback via Google Apps Script POST Proxy (bypasses region block on Telegram API)
+            if not self.web_app_url or "PASTE_YOUR_DEPLOYED" in self.web_app_url:
+                raise Exception("Direct connection failed, and fallback Google Web App URL is not configured.")
+
+            photo_b64 = ""
+            photo_name = ""
+            if self.screenshot_path and os.path.isfile(self.screenshot_path):
+                with open(self.screenshot_path, "rb") as img_f:
+                    photo_b64 = base64.b64encode(img_f.read()).decode("utf-8")
+                photo_name = os.path.basename(self.screenshot_path)
+
+            post_payload = _json.dumps({
+                "action": "send_report",
+                "bot_token": self.bot_token,
+                "chat_id": self.chat_id,
+                "message_text": self.message_text,
+                "photo_b64": photo_b64,
+                "photo_name": photo_name
+            }).encode("utf-8")
+
+            req_web = urllib.request.Request(
+                self.web_app_url,
+                data=post_payload,
+                headers={"Content-Type": "application/json"},
+                method="POST"
+            )
+
+            # Redirect handler preserving POST data to Google Scripts
+            class HTTPRedirectHandler(urllib.request.HTTPRedirectHandler):
+                def redirect_request(self, req, fp, code, msg, headers, newurl):
+                    m = req.get_method()
+                    if code in (301, 302, 307) and m == 'POST':
+                        newreq = urllib.request.Request(
+                            newurl,
+                            data=req.data,
+                            headers=req.headers,
+                            origin_req_host=req.origin_req_host,
+                            unverifiable=True,
+                            method='POST'
+                        )
+                        return newreq
+                    return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+            opener = urllib.request.build_opener(HTTPRedirectHandler)
+            with opener.open(req_web, timeout=25.0) as resp_web:
+                result_web = _json.loads(resp_web.read().decode())
+
+            if result_web.get("status") == "success":
+                tg_res = _json.loads(result_web.get("response_text", "{}"))
+                if tg_res.get("ok"):
+                    self.success_signal.emit("Report sent successfully!")
+                else:
+                    raise Exception(f"Telegram API proxy error: {tg_res.get('description', tg_res)}")
+            else:
+                raise Exception(result_web.get("message", "Google Web App proxy failed"))
+
+        except Exception as e:
+            self.error_signal.emit(str(e))
+
+
+# --- REPORT ISSUE DIALOG ---
+class ReportIssueDialog(QDialog):
+    def __init__(self, config_data, app_version, parent=None):
+        super().__init__(parent)
+        self.config_data      = config_data
+        self.app_version      = app_version
+        self._worker          = None
+        self._screenshot_path = None  # Selected screenshot path
+        self.setWindowTitle("Report an Issue")
+        self.setFixedSize(480, 460)
+        self.setModal(True)
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #0F1117;
+                border: 1px solid #1E2A3A;
+                border-radius: 14px;
+            }
+            QLabel#DlgTitle {
+                color: #F3F4F6;
+                font-size: 14pt;
+                font-weight: bold;
+            }
+            QLabel#DlgSub {
+                color: #6B7280;
+                font-size: 9pt;
+            }
+            QLabel {
+                color: #D1D5DB;
+                font-size: 9.5pt;
+            }
+            QComboBox, QTextEdit {
+                background-color: #1A2233;
+                color: #E5E7EB;
+                border: 1px solid #2D3748;
+                border-radius: 7px;
+                padding: 6px 10px;
+                font-size: 9.5pt;
+            }
+            QComboBox::drop-down { border: none; }
+            QComboBox QAbstractItemView {
+                background: #1A2233;
+                color: #E5E7EB;
+                selection-background-color: #8B5CF6;
+            }
+            QPushButton#BtnSubmit {
+                background: qlineargradient(x1:0,y1:0,x2:1,y2:0,
+                    stop:0 #7C3AED, stop:1 #8B5CF6);
+                color: white;
+                font-weight: bold;
+                border-radius: 8px;
+                border: none;
+                padding: 9px 20px;
+                font-size: 10pt;
+            }
+            QPushButton#BtnSubmit:hover  { background: #A78BFA; }
+            QPushButton#BtnSubmit:disabled { background: #374151; color: #6B7280; }
+            QPushButton#BtnCancel {
+                background: #1E2A3A;
+                color: #9CA3AF;
+                border: 1px solid #2D3748;
+                border-radius: 8px;
+                padding: 9px 18px;
+                font-size: 10pt;
+            }
+            QPushButton#BtnCancel:hover { background: #2D3748; color: #E5E7EB; }
+            QPushButton#BtnAttach {
+                background: #1A2233;
+                color: #A78BFA;
+                border: 1px solid #4C1D95;
+                border-radius: 7px;
+                padding: 6px 12px;
+                font-size: 9pt;
+            }
+            QPushButton#BtnAttach:hover { background: #2D1B69; }
+            QPushButton#BtnRemoveShot {
+                background: transparent;
+                color: #EF4444;
+                border: none;
+                font-size: 9pt;
+                padding: 2px 6px;
+            }
+            QPushButton#BtnRemoveShot:hover { color: #FCA5A5; }
+            QLabel#StatusLbl { font-size: 8.5pt; }
+            QLabel#ShotThumb {
+                border: 1px solid #2D3748;
+                border-radius: 6px;
+                background: #1A2233;
+            }
+        """)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(28, 24, 28, 20)
+        layout.setSpacing(10)
+
+        # ── Title row ──
+        title_row = QHBoxLayout()
+        icon_lbl  = QLabel("🐛")
+        icon_lbl.setStyleSheet("font-size: 20pt; background: transparent;")
+        title_lbl = QLabel("Report an Issue")
+        title_lbl.setObjectName("DlgTitle")
+        title_row.addWidget(icon_lbl)
+        title_row.addWidget(title_lbl)
+        title_row.addStretch()
+        layout.addLayout(title_row)
+
+        sub_lbl = QLabel("Your report goes directly to the admin via Telegram.")
+        sub_lbl.setObjectName("DlgSub")
+        layout.addWidget(sub_lbl)
+
+        # ── Issue type ──
+        layout.addWidget(QLabel("Issue Type:"))
+        self.cb_type = QComboBox()
+        self.cb_type.addItems([
+            "🐛  Bug Report",
+            "💡  Feature Request",
+            "🔐  Account / Activation Issue",
+            "⚡  Performance Issue",
+            "📋  Other"
+        ])
+        layout.addWidget(self.cb_type)
+
+        # ── Description ──
+        layout.addWidget(QLabel("Description:"))
+        self.txt_desc = QTextEdit()
+        self.txt_desc.setPlaceholderText("Describe the issue in detail... (minimum 10 characters)")
+        self.txt_desc.setFixedHeight(85)
+        layout.addWidget(self.txt_desc)
+
+        # ── Screenshot row ──
+        shot_row = QHBoxLayout()
+        shot_row.setSpacing(8)
+
+        self.btn_attach = QPushButton("📎  Attach Screenshot")
+        self.btn_attach.setObjectName("BtnAttach")
+        self.btn_attach.setFixedHeight(32)
+        self.btn_attach.setCursor(Qt.CursorShape.PointingHandCursor)
+        shot_row.addWidget(self.btn_attach)
+
+        self.lbl_shot_name = QLabel("No file selected")
+        self.lbl_shot_name.setStyleSheet("color: #6B7280; font-size: 8.5pt;")
+        shot_row.addWidget(self.lbl_shot_name, 1)
+
+        self.btn_remove_shot = QPushButton("✕")
+        self.btn_remove_shot.setObjectName("BtnRemoveShot")
+        self.btn_remove_shot.setFixedSize(24, 24)
+        self.btn_remove_shot.setVisible(False)
+        shot_row.addWidget(self.btn_remove_shot)
+
+        layout.addLayout(shot_row)
+
+        # Thumbnail preview (hidden until screenshot selected)
+        self.lbl_thumb = QLabel()
+        self.lbl_thumb.setObjectName("ShotThumb")
+        self.lbl_thumb.setFixedSize(80, 50)
+        self.lbl_thumb.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_thumb.setVisible(False)
+        thumb_row = QHBoxLayout()
+        thumb_row.addWidget(self.lbl_thumb)
+        thumb_row.addStretch()
+        layout.addLayout(thumb_row)
+
+        # ── Version info ──
+        ver_lbl = QLabel(f"App Version:  <b>v{app_version}</b>  (auto-attached)")
+        ver_lbl.setTextFormat(Qt.TextFormat.RichText)
+        ver_lbl.setStyleSheet("color: #6B7280; font-size: 8.5pt;")
+        layout.addWidget(ver_lbl)
+
+        # ── Status label ──
+        self.status_lbl = QLabel("")
+        self.status_lbl.setObjectName("StatusLbl")
+        self.status_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.status_lbl)
+
+        # ── Bottom buttons ──
+        btn_row = QHBoxLayout()
+        self.btn_cancel = QPushButton("Cancel")
+        self.btn_cancel.setObjectName("BtnCancel")
+        self.btn_cancel.setFixedHeight(38)
+        self.btn_submit = QPushButton("📤  Submit Report")
+        self.btn_submit.setObjectName("BtnSubmit")
+        self.btn_submit.setFixedHeight(38)
+        btn_row.addWidget(self.btn_cancel)
+        btn_row.addStretch()
+        btn_row.addWidget(self.btn_submit)
+        layout.addLayout(btn_row)
+
+        # ── Connections ──
+        self.btn_cancel.clicked.connect(self.reject)
+        self.btn_submit.clicked.connect(self.submit_report)
+        self.btn_attach.clicked.connect(self.choose_screenshot)
+        self.btn_remove_shot.clicked.connect(self.remove_screenshot)
+
+    def choose_screenshot(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Select Screenshot",
+            "",
+            "Images (*.png *.jpg *.jpeg *.bmp *.webp)"
+        )
+        if not path:
+            return
+        import os
+        self._screenshot_path = path
+        fname = os.path.basename(path)
+        # Truncate long names
+        self.lbl_shot_name.setText(fname[:40] + ("..." if len(fname) > 40 else ""))
+        self.lbl_shot_name.setStyleSheet("color: #A78BFA; font-size: 8.5pt;")
+        self.btn_remove_shot.setVisible(True)
+
+        # Show thumbnail
+        pix = QPixmap(path)
+        if not pix.isNull():
+            thumb = pix.scaled(80, 50, Qt.AspectRatioMode.KeepAspectRatio,
+                               Qt.TransformationMode.SmoothTransformation)
+            self.lbl_thumb.setPixmap(thumb)
+            self.lbl_thumb.setVisible(True)
+
+    def remove_screenshot(self):
+        self._screenshot_path = None
+        self.lbl_shot_name.setText("No file selected")
+        self.lbl_shot_name.setStyleSheet("color: #6B7280; font-size: 8.5pt;")
+        self.btn_remove_shot.setVisible(False)
+        self.lbl_thumb.clear()
+        self.lbl_thumb.setVisible(False)
+
+    def submit_report(self):
+        desc = self.txt_desc.toPlainText().strip()
+        if len(desc) < 10:
+            self.status_lbl.setStyleSheet("color: #EF4444;")
+            self.status_lbl.setText("⚠️  Please write at least 10 characters in the description.")
+            return
+
+        issue_type = self.cb_type.currentText().strip()
+        from datetime import datetime as _dt
+        time_str = _dt.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        has_shot = bool(self._screenshot_path)
+        message  = (
+            f"🐛 *New Issue Report — AKIRA v{self.app_version}*\n"
+            f"━━━━━━━━━━━━━━━━━━━━━\n"
+            f"*Type:* {issue_type}\n"
+            f"*Time:* {time_str}\n"
+            f"*Screenshot:* {'✅ Attached' if has_shot else '❌ None'}\n\n"
+            f"*Description:*\n{desc}"
+        )
+
+        bot_token = self.config_data.get("tg_bot_token", "")
+        chat_id   = self.config_data.get("tg_chat_id",   "")
+        if not bot_token or not chat_id:
+            self.status_lbl.setStyleSheet("color: #EF4444;")
+            self.status_lbl.setText("❌  Report config not set. Contact admin.")
+            return
+
+        self.btn_submit.setEnabled(False)
+        self.btn_submit.setText("Sending...")
+        self.status_lbl.setStyleSheet("color: #6B7280;")
+        self.status_lbl.setText("📡  Sending to admin...")
+
+        web_app_url = self.config_data.get("web_app_url", "")
+        self._worker = TelegramReportWorker(bot_token, chat_id, message, self._screenshot_path, web_app_url)
+        self._worker.success_signal.connect(self._on_success)
+        self._worker.error_signal.connect(self._on_error)
+        self._worker.start()
+
+    def _on_success(self, msg):
+        self.status_lbl.setStyleSheet("color: #10B981;")
+        self.status_lbl.setText("✅  Report sent! Admin will review it shortly.")
+        self.btn_submit.setText("✅  Sent!")
+        self.btn_cancel.setText("Close")
+
+    def _on_error(self, err):
+        self.status_lbl.setStyleSheet("color: #EF4444;")
+        self.btn_submit.setText("📤  Retry")
+
+
 # --- APP BOOTSTRAP ---
 if __name__ == "__main__":
+
     # Programmatically hide the Windows command prompt console (black screen) immediately on launch
     try:
         import ctypes
@@ -7886,10 +8837,27 @@ if __name__ == "__main__":
         config_path = os.path.join(exe_dir, "license_config.json")
         if os.path.exists(config_path):
             with open(config_path, "r", encoding="utf-8") as f:
-                local_cfg = json.load(f)
-                for k, v in local_cfg.items():
-                    if v is not None:  # override if configured
-                        config_data[k] = v
+                content = f.read().strip()
+            
+            local_cfg = {}
+            if content:
+                if not content.startswith("{"):
+                    # Decrypt using XOR 42
+                    try:
+                        decoded_bytes = base64.b64decode(content.encode('utf-8'))
+                        decrypted_str = "".join([chr(b ^ 42) for b in decoded_bytes])
+                        local_cfg = json.loads(decrypted_str)
+                    except Exception as de:
+                        print(f"Failed to decrypt config file: {de}")
+                else:
+                    try:
+                        local_cfg = json.loads(content)
+                    except:
+                        pass
+                        
+            for k, v in local_cfg.items():
+                if v is not None:  # override if configured
+                    config_data[k] = v
     except Exception:
         pass
         
