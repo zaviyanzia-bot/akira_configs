@@ -1,7 +1,7 @@
 [Setup]
 AppId={{A35B6D18-F58D-43D5-B52B-FFE9C629A12D}
 AppName=AKIRA
-AppVersion=1.0.7
+AppVersion=1.0.8
 AppPublisher=Malik Zia
 DefaultDirName={autopf}\Akira
 DefaultGroupName=AKIRA

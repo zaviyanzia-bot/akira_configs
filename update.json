@@ -1,5 +1,5 @@
 {
-  "latest_version": "1.0.7",
-  "download_url": "https://github.com/zaviyanzia-bot/akira_configs/releases/download/v1.0.7/Akira_Setup.exe",
-  "changelog": "- Support for 10+ Parallel Browsers\n- Instant App Restart Fix\n- New Bug Report Button (🐛)\n- Attach Screenshot to Reports"
+  "latest_version": "1.0.8",
+  "download_url": "https://github.com/zaviyanzia-bot/akira_configs/releases/download/v1.0.8/Akira_Setup.exe",
+  "changelog": "- Bypass Telegram API block (Pakistan/Bangladesh)\n- Google Apps Script proxy fallback for reports\n- Secure client configurations build safeguard"
 }
