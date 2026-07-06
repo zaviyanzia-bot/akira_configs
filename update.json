@@ -1,5 +1,5 @@
 {
-  "latest_version": "1.0.3",
-  "download_url": "https://github.com/zaviyanzia-bot/akira_configs/releases/download/v1.0.3/Akira_Setup.exe",
-  "changelog": "- New cleaner settings screen layout.\n- Set custom wait time for video creation.\n- Faster downloads with automatic clicking.\n- Run multiple browsers at the same time.\n- Cleaned up live log screen updates."
+  "latest_version": "1.0.7",
+  "download_url": "https://github.com/zaviyanzia-bot/akira_configs/releases/download/v1.0.7/Akira_Setup.exe",
+  "changelog": "- Support for 10+ Parallel Browsers\n- Instant App Restart Fix\n- New Bug Report Button (🐛)\n- Attach Screenshot to Reports"
 }
