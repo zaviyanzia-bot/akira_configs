@@ -32,12 +32,12 @@ CONFIG_DATA = {
     "update_check_url": _un("Ql5eWlkQBQVYS10ETUNeQl9IX1lPWElFRF5PRF4ESUVHBVBLXENTS0RQQ0sHSEVeBUtBQ1hLdUlFRExDTVkFR0tDRAVfWk5LXk8EQFlFRA=="),
     "bitcoin_address": _un("MUJ2Qk1TRVlzdE52alQyNUFuVWlaMkY0dDZ5eTQyeVg="),
     "usdt_address": _un("MHg3MUM3NjU2RUM3YWI4OGIwOThkZWZCNzUxQjc0MDFCNWY2ZDg5NzZG"),
-    "usdt_trc20_address": "T9yD14Nj9yD14Nj9yD14Nj9yD14Nj9yD14N",
-    "binance_pay_id": "123456789",
+    "usdt_trc20_address": _un("fhNTbhseZEATU24bHmRAE1NuGx5kQBNTbhseZEATU24bHmQ="),
+    "binance_pay_id": _un("GxgZHh8cHRIT"),
     "admin_contact_url": _un("Ql5eWlkQBQVdSwRHTwUTGBkeHR0ZExMaHRk="),
     # Telegram Report Bot credentials
-    "tg_bot_token": "8914472687:AAEfDQPLUkx-OFaJHZ5TZmLfGXFSLwf6YnI",
-    "tg_chat_id": "8632698034"
+    "tg_bot_token": _un("EhMbHh4dGBwSHRBra29Mbnt6Zn9BUgdlbEtgYnAffnBHZkxtcmx5Zl1MHHNEYw=="),
+    "tg_chat_id": _un("EhwZGBwTEhoZHg==")
 }
 
 def get_logo_pixmap(size=32):
