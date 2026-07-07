@@ -1,5 +1,5 @@
 {
-  "latest_version": "1.0.8",
+  "latest_version": "1.0.9",
   "download_url": "https://github.com/zaviyanzia-bot/akira_configs/releases/download/v1.0.8/Akira_Setup.exe",
-  "changelog": "- Removed restart button\n- added suport button (testing)\n- minor bug fix"
+  "changelog": "- Updated Points to 4\n- minor bug fix & ui updates"
 }
