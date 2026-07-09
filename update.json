@@ -1,5 +1,5 @@
 {
   "latest_version": "1.1.0",
   "download_url": "https://github.com/zaviyanzia-bot/akira_configs/releases/download/v1.1.0/Akira_Setup.exe",
-  "changelog": "- Fixed 15s video and 9:16 ratio for detailed prompts.\n- Default video length changed to 10s with guidelines notice.\n- Background video downloading without opening new tabs\n- Faster and more reliable license verification on startup\n-Cleaned and simplified console logs.minor bug fix & ui updates"
+  "changelog": "- Fixed report feature\n- Fixed WhatsApp Link\n- Background video downloading without opening new tabs\n- 15s Fixes will be in next update (Under Process)"
 }
